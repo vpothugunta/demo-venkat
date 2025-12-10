@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from datetime import date, datetime
+from datetime import date
 import os
 
 st.set_page_config(page_title="Daily Habit Tracker", layout="centered")
@@ -8,12 +8,7 @@ st.set_page_config(page_title="Daily Habit Tracker", layout="centered")
 NAMES = ["Theju", "Udaya", "Teju", "Tushara", "Kavya"]
 DATA_FILE = "scores.csv"
 
-# Start date for custom weeks/months
-START_DATE = date(2025, 1, 2)
-
-# ----------------------------
-# LOAD OR CREATE CSV
-# ----------------------------
+# Load or create CSV
 if os.path.exists(DATA_FILE):
     df = pd.read_csv(DATA_FILE)
 else:
@@ -22,9 +17,7 @@ else:
 
 st.title("🏆 Daily Habit Score Tracker")
 
-# ----------------------------
-# INPUT SECTION
-# ----------------------------
+# Input
 st.header("Submit Today's Update")
 
 name = st.selectbox("Name", NAMES)
@@ -36,26 +29,22 @@ diet_penalty = 1
 if diet == "No":
     diet_penalty = st.number_input("How many diet mistakes?", min_value=1, max_value=10, value=1)
 
-# ----------------------------
-# SCORING LOGIC
-# ----------------------------
+# Scoring logic
 score = 0
 score += 1 if diet == "Yes" else -diet_penalty
 score += 1 if workout == "Yes" else -1
 score += 1 if social == "Yes" else 0
 
-st.subheader(f"Today's Score: ⭐ {score}")
+st.subheader(f"Today's Score: {score}")
 
-# ----------------------------
-# SUBMIT LOGIC (SAFE UPDATE)
-# ----------------------------
+# Submit Logic (UPDATE instead of INSERT)
 if st.button("Submit"):
     today = str(date.today())
 
-    # Remove old entry for (name, date)
+    # Remove existing entry for this name+date
     df = df[~((df["name"] == name) & (df["date"] == today))]
 
-    # Add new row
+    # Add updated new row
     new_row = {
         "name": name,
         "date": today,
@@ -65,15 +54,12 @@ if st.button("Submit"):
         "diet_penalty": diet_penalty,
         "score": score
     }
-
     df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
-    df.to_csv(DATA_FILE, index=False)
 
+    df.to_csv(DATA_FILE, index=False)
     st.success("✅ Submitted and updated today's entry!")
 
-# ----------------------------
 # DAILY SUMMARY
-# ----------------------------
 st.header("📅 Daily Summary")
 
 today = str(date.today())
@@ -84,62 +70,26 @@ if len(today_df) == 0:
 else:
     st.dataframe(today_df[["name", "diet", "workout", "social", "score"]])
 
-# ----------------------------
-# ENSURE DATE FORMAT
-# ----------------------------
-df["date"] = pd.to_datetime(df["date"]).dt.date
+# WEEKLY SUMMARY
+st.header("📅 Weekly Summary")
 
-# Prevent errors for empty tables
-if len(df) > 0:
-    df["days_since_start"] = (df["date"] - START_DATE).apply(lambda x: x.days)
-    df = df[df["days_since_start"] >= 0]  # ignore entries before Jan 2
-    df["week_number"] = df["days_since_start"] // 7
-    df["month_number"] = df["week_number"] // 4
+df["date"] = pd.to_datetime(df["date"])
+week = date.today().isocalendar().week
+weekly = df[df["date"].dt.isocalendar().week == week]
+weekly_scores = weekly.groupby("name")["score"].sum().reset_index()
 
-# ----------------------------
-# CUSTOM WEEKLY SUMMARY
-# ----------------------------
-st.header("📅 Weekly Summary (7-Day Cycle from Jan 2)")
+st.dataframe(weekly_scores)
 
-if len(df) == 0:
-    st.info("No weekly data yet.")
-else:
-    current_week = (date.today() - START_DATE).days // 7
-    weekly = df[df["week_number"] == current_week]
+# MONTHLY SUMMARY
+st.header("📆 Monthly Summary")
 
-    if len(weekly) == 0:
-        st.info("No entries this week yet.")
-    else:
-        weekly_scores = weekly.groupby("name")["score"].sum().reset_index()
-        weekly_scores = weekly_scores.sort_values("score", ascending=False)
+month = date.today().month
+monthly = df[df["date"].dt.month == month]
+monthly_scores = monthly.groupby("name")["score"].sum().reset_index()
 
-        st.subheader(f"Week {current_week + 1}")
-        st.dataframe(weekly_scores)
+st.dataframe(monthly_scores)
 
-        winner = weekly_scores.iloc[0]
-        st.success(f"🏆 Weekly Winner: {winner['name']} ({winner['score']} points)")
-
-# ----------------------------
-# CUSTOM MONTHLY SUMMARY
-# ----------------------------
-st.header("📆 Monthly Summary (4-Week Cycle)")
-
-if len(df) == 0:
-    st.info("No monthly data yet.")
-else:
-    current_week = (date.today() - START_DATE).days // 7
-    current_month = current_week // 4
-
-    monthly = df[df["month_number"] == current_month]
-
-    if len(monthly) == 0:
-        st.info("No entries this month yet.")
-    else:
-        monthly_scores = monthly.groupby("name")["score"].sum().reset_index()
-        monthly_scores = monthly_scores.sort_values("score", ascending=False)
-
-        st.subheader(f"Month {current_month + 1}")
-        st.dataframe(monthly_scores)
-
-        month_winner = monthly_scores.iloc[0]
-        st.success(f"🏆 Monthly Winner: {month_winner['name']} ({month_winner['score']} points)")
+# Winner
+if len(monthly_scores) > 0:
+    winner = monthly_scores.loc[monthly_scores["score"].idxmax()]
+    st.success(f"🏆 Winner: {winner['name']} with {winner['score']} points")
