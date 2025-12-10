@@ -39,7 +39,7 @@ DATA_FILE = "scores.csv"
 if os.path.exists(DATA_FILE):
     df = pd.read_csv(DATA_FILE)
 else:
-    df = pd.DataFrame(columns=["name", "date", "break", "diet", "workout", "social", "diet_penalty", "score"])
+    df = pd.DataFrame(columns=["name", "date", "diet", "workout", "social", "diet_penalty", "score"])
     df.to_csv(DATA_FILE, index=False)
 
 # ---------------------------
@@ -48,44 +48,33 @@ else:
 st.markdown("<div class='section-title'>Submit Today's Update</div>", unsafe_allow_html=True)
 
 name = st.selectbox("👤 Select Name", NAMES)
+diet = st.selectbox("🍽️ Diet", ["Yes", "No"])
+workout = st.selectbox("💪 Workout", ["Yes", "No"])
+social = st.selectbox("📱 Social Media", ["Yes", "No"])
 
-# NEW FIELD → BREAK OPTION
-take_break = st.selectbox("🛑 Break Today?", ["No", "Yes"])
+diet_penalty = 1
+if diet == "No":
+    diet_penalty = st.number_input("How many diet mistakes?", min_value=1, max_value=10, value=1)
 
-if take_break == "Yes":
-    st.info("Break day selected → No negative, score = 0")
-    diet = workout = social = "Break"
-    diet_penalty = 0
-    score = 0
-else:
-    diet = st.selectbox("🍽️ Diet", ["Yes", "No"])
-    workout = st.selectbox("💪 Workout", ["Yes", "No"])
-    social = st.selectbox("📱 Social Media", ["Yes", "No"])
-
-    diet_penalty = 1
-    if diet == "No":
-        diet_penalty = st.number_input("How many diet mistakes?", min_value=1, max_value=10, value=1)
-
-    # Normal scoring
-    score = 0
-    score += 1 if diet == "Yes" else -diet_penalty
-    score += 1 if workout == "Yes" else -1
-    score += 1 if social == "Yes" else 0
+# ---------------------------
+# SCORING
+# ---------------------------
+score = 0
+score += 1 if diet == "Yes" else -diet_penalty
+score += 1 if workout == "Yes" else -1
+score += 1 if social == "Yes" else 0
 
 st.subheader(f"⭐ Today's Score: {score}")
 
-# ---------------------------
-# SUBMIT LOGIC (UPDATE ENTRY)
-# ---------------------------
 if st.button("Submit"):
     today = str(date.today())
 
+    # Remove existing record for name + date
     df = df[~((df["name"] == name) & (df["date"] == today))]
 
     new_row = {
         "name": name,
         "date": today,
-        "break": take_break,
         "diet": diet,
         "workout": workout,
         "social": social,
@@ -99,31 +88,42 @@ if st.button("Submit"):
     st.success("✅ Your update has been submitted!")
 
 # ---------------------------
+# CLEAN DATE FORMAT
+# ---------------------------
+df["date"] = pd.to_datetime(df["date"]).dt.date
+today = date.today()
+
+# ---------------------------
 # DAILY SUMMARY
 # ---------------------------
 st.markdown("<div class='section-title'>📅 Daily Summary</div>", unsafe_allow_html=True)
-
-df["date"] = pd.to_datetime(df["date"]).dt.date
-today = date.today()
 
 daily_df = df[df["date"] == today]
 if len(daily_df) == 0:
     st.info("No entries today yet.")
 else:
-    st.dataframe(daily_df[["name", "break", "diet", "workout", "social", "score"]])
+    st.dataframe(daily_df[["name", "diet", "workout", "social", "score"]])
 
 # ---------------------------
-# WEEKLY SUMMARY → Calendar Week (Mon–Sun)
+# WEEKLY SUMMARY (CALENDAR WEEK)
+# Monday → Sunday
 # ---------------------------
 st.markdown("<div class='section-title'>📅 Weekly Summary (Calendar Week)</div>", unsafe_allow_html=True)
 
-monday = today - timedelta(days=today.weekday())
-sunday = monday + timedelta(days=6)
+monday = today - timedelta(days=today.weekday())     # start of calendar week
+sunday = monday + timedelta(days=6)                  # end of week
 
 weekly_df = df[(df["date"] >= monday) & (df["date"] <= sunday)]
-weekly_scores = weekly_df.groupby("name")["score"].sum().reset_index().sort_values("score", ascending=False)
+
+weekly_scores = (
+    weekly_df.groupby("name")["score"]
+    .sum()
+    .reset_index()
+    .sort_values("score", ascending=False)
+)
 
 st.markdown(f"**Week Range:** {monday} → {sunday}")
+
 st.dataframe(weekly_scores)
 
 if len(weekly_scores) > 0:
@@ -131,15 +131,22 @@ if len(weekly_scores) > 0:
     st.markdown(f"<div class='winner-box'>🏆 Weekly Winner: {w['name']} ({w['score']} points)</div>", unsafe_allow_html=True)
 
 # ---------------------------
-# MONTHLY SUMMARY → Last 28 Days
+# MONTHLY SUMMARY (LAST 28 DAYS)
 # ---------------------------
 st.markdown("<div class='section-title'>📆 Monthly Summary (Last 28 Days)</div>", unsafe_allow_html=True)
 
 month_start = today - timedelta(days=27)
 monthly_df = df[(df["date"] >= month_start) & (df["date"] <= today)]
-monthly_scores = monthly_df.groupby("name")["score"].sum().reset_index().sort_values("score", ascending=False)
+
+monthly_scores = (
+    monthly_df.groupby("name")["score"]
+    .sum()
+    .reset_index()
+    .sort_values("score", ascending=False)
+)
 
 st.markdown(f"**28-Day Range:** {month_start} → {today}")
+
 st.dataframe(monthly_scores)
 
 if len(monthly_scores) > 0:
