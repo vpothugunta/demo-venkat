@@ -60,7 +60,7 @@ if st.button("Submit"):
     st.success("✅ Submitted and updated today's entry!")
 
 # DAILY SUMMARY
-st.header("📅 Daily Summary")
+st.header("Daily Summary")
 
 today = str(date.today())
 today_df = df[df["date"] == today]
@@ -71,7 +71,7 @@ else:
     st.dataframe(today_df[["name", "diet", "workout", "social", "score"]])
 
 # WEEKLY SUMMARY
-st.header("📅 Weekly Summary")
+st.header("Weekly Summary")
 
 df["date"] = pd.to_datetime(df["date"])
 week = date.today().isocalendar().week
@@ -81,7 +81,7 @@ weekly_scores = weekly.groupby("name")["score"].sum().reset_index()
 st.dataframe(weekly_scores)
 
 # MONTHLY SUMMARY
-st.header("📆 Monthly Summary")
+st.header("Monthly Summary")
 
 month = date.today().month
 monthly = df[df["date"].dt.month == month]
