@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from datetime import date
+from datetime import date, timedelta
 import os
 
 st.set_page_config(page_title="Daily Habit Tracker", layout="centered")
@@ -51,19 +51,60 @@ if st.button("Submit"):
     df.to_csv(DATA_FILE, index=False)
     st.success("Submitted!")
 
-# Leaderboards
-st.header("Weekly Summary")
-df["date"] = pd.to_datetime(df["date"])
-week = date.today().isocalendar().week
-weekly = df[df["date"].dt.isocalendar().week == week]
-st.dataframe(weekly.groupby("name")["score"].sum().reset_index())
+# Convert date column
+df["date"] = pd.to_datetime(df["date"]).dt.date
 
-st.header("Monthly Summary")
-month = date.today().month
-monthly = df[df["date"].dt.month == month]
-monthly_scores = monthly.groupby("name")["score"].sum().reset_index()
+# -------------------------
+# DAILY SUMMARY
+# -------------------------
+st.header("📅 Daily Summary")
+
+today = date.today()
+daily_df = df[df["date"] == today]
+
+if len(daily_df) == 0:
+    st.info("No entries today yet.")
+else:
+    st.dataframe(daily_df[["name", "diet", "workout", "social", "score"]])
+
+# -------------------------
+# WEEKLY SUMMARY (Last 7 Days)
+# -------------------------
+st.header("📅 Weekly Summary (Last 7 Days)")
+
+week_start = today - timedelta(days=6)
+weekly_df = df[(df["date"] >= week_start) & (df["date"] <= today)]
+
+weekly_scores = (
+    weekly_df.groupby("name")["score"]
+    .sum()
+    .reset_index()
+    .sort_values("score", ascending=False)
+)
+
+st.dataframe(weekly_scores)
+
+if len(weekly_scores) > 0:
+    winner = weekly_scores.iloc[0]
+    st.success(f"🏆 Weekly Winner: {winner['name']} with {winner['score']} points")
+
+# -------------------------
+# MONTHLY SUMMARY (Last 28 Days)
+# -------------------------
+st.header("📆 Monthly Summary (Last 28 Days)")
+
+month_start = today - timedelta(days=27)
+monthly_df = df[(df["date"] >= month_start) & (df["date"] <= today)]
+
+monthly_scores = (
+    monthly_df.groupby("name")["score"]
+    .sum()
+    .reset_index()
+    .sort_values("score", ascending=False)
+)
+
 st.dataframe(monthly_scores)
 
 if len(monthly_scores) > 0:
-    winner = monthly_scores.loc[monthly_scores["score"].idxmax()]
-    st.success(f"🏆 Winner: {winner['name']} with {winner['score']} points")
+    winner = monthly_scores.iloc[0]
+    st.success(f"🏆 Monthly Winner: {winner['name']} with {winner['score']} points")
