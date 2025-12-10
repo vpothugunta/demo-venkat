@@ -37,17 +37,10 @@ score += 1 if social == "Yes" else 0
 
 st.subheader(f"Today's Score: {score}")
 
-# Submit Logic (UPDATE instead of INSERT)
 if st.button("Submit"):
-    today = str(date.today())
-
-    # Remove existing entry for this name+date
-    df = df[~((df["name"] == name) & (df["date"] == today))]
-
-    # Add updated new row
     new_row = {
         "name": name,
-        "date": today,
+        "date": str(date.today()),
         "diet": diet,
         "workout": workout,
         "social": social,
@@ -55,41 +48,22 @@ if st.button("Submit"):
         "score": score
     }
     df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
-
     df.to_csv(DATA_FILE, index=False)
-    st.success("✅ Submitted and updated today's entry!")
+    st.success("Submitted!")
 
-# DAILY SUMMARY
-st.header("📅 Daily Summary")
-
-today = str(date.today())
-today_df = df[df["date"] == today]
-
-if len(today_df) == 0:
-    st.info("No entries submitted today yet.")
-else:
-    st.dataframe(today_df[["name", "diet", "workout", "social", "score"]])
-
-# WEEKLY SUMMARY
-st.header("📅 Weekly Summary")
-
+# Leaderboards
+st.header("Weekly Summary")
 df["date"] = pd.to_datetime(df["date"])
 week = date.today().isocalendar().week
 weekly = df[df["date"].dt.isocalendar().week == week]
-weekly_scores = weekly.groupby("name")["score"].sum().reset_index()
+st.dataframe(weekly.groupby("name")["score"].sum().reset_index())
 
-st.dataframe(weekly_scores)
-
-# MONTHLY SUMMARY
-st.header("📆 Monthly Summary")
-
+st.header("Monthly Summary")
 month = date.today().month
 monthly = df[df["date"].dt.month == month]
 monthly_scores = monthly.groupby("name")["score"].sum().reset_index()
-
 st.dataframe(monthly_scores)
 
-# Winner
 if len(monthly_scores) > 0:
     winner = monthly_scores.loc[monthly_scores["score"].idxmax()]
     st.success(f"🏆 Winner: {winner['name']} with {winner['score']} points")
